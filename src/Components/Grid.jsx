@@ -1,12 +1,18 @@
 import React, { useState, useEffect } from 'react';
+import Score from './Score';
+import GameMessage from './GameMessage';
 
 const Grid = () => {
-  const gridSize = 4;
-  const [grid, setGrid] = useState([]);
+  const gridSize = 4; // the size of the grid
+  const [grid, setGrid] = useState([]); // state for storing the current grid
+  const [score, setScore] = useState(0); // state for tracking the score
+  const [gameStatus, setGameStatus] = useState(null) // state for checking the game status
 
+
+  // generating two random tiles with values of either 2 or 4
   const initializeTiles = () => {
-    const initialGrid = Array(gridSize * gridSize).fill(null);
-    const randomIndices = [];
+    const initialGrid = Array(gridSize * gridSize).fill(null); // empty grid 
+    const randomIndices = []; // randomly placing the tiles
     while (randomIndices.length < 2) {
       const index = Math.floor(Math.random() * gridSize * gridSize);
       if (!randomIndices.includes(index)) {
@@ -16,13 +22,42 @@ const Grid = () => {
     randomIndices.forEach(index => {
       initialGrid[index] = getRandomTileValue();
     });
-    setGrid(initialGrid);
+    setGrid(initialGrid); // updating the grid state
+    setScore(0);
+    setGameStatus(null);
   };
 
-  const getRandomTileValue = () => {
-    return Math.random() < 0.9 ? 2 : 4;
+  // returns a random tile value with higher chance of getting 2 than getting 4
+  const getRandomTileValue = () => Math.random() < 0.9 ? 2 : 4;
+
+  // check if the game has won
+  const checkForWin = () => grid.includes(2048);
+
+  // check if the game has loss
+  const checkForLoss = () => {
+    if (grid.includes(null)) return false; 
+    for (let i = 0; i < gridSize; i++) {
+      for (let j = 0; j < gridSize; j++) {
+        const index = i * gridSize + j;
+        const tile = grid[index];
+        const right = j < gridSize - 1 ? grid[index + 1] : null;
+        const down = i < gridSize - 1 ? grid[index + gridSize] : null;
+        if (tile === right || tile === down) return false; 
+      }
+    }
+    return true;
+  };
+  
+  // handle the status of the game
+  const handleGame = () => {
+    if (checkForWin()) {
+      setGameStatus('won');
+    } else if (checkForLoss()) {
+      setGameStatus('lost');
+    }
   };
 
+  // assigning background color based on the tile value
   const getTileColor = (value) => {
     switch (value) {
       case 2: return 'bg-[#B5B5B5]';
@@ -40,39 +75,51 @@ const Grid = () => {
     }
   };
 
+  // shifts the row to the left, merging tiles where possible  
   const shiftRowLeft = (row) => {
     let filteredRow = row.filter(cell => cell !== null);
     let newRow = [];
-    let merged = Array(row.length).fill(false);
+    let merged = Array(row.length).fill(false); // tracking merged cells to avoid merging twice
+    let tempScore = 0; // temporary score to accumulate during this shift
 
     let i = 0;
     while (i < filteredRow.length) {
+      // merging if they have the same value and are not merged yet.
       if (i + 1 < filteredRow.length && filteredRow[i] === filteredRow[i + 1] && !merged[i] && !merged[i + 1]) {
-        newRow.push(filteredRow[i] * 2);
-        merged[i] = true;
+        const mergedValue = filteredRow[i] * 2;
+        newRow.push(filteredRow[i] * 2); // doubling the value of the merged tiles
+        tempScore += mergedValue; // add merged value to temp score
+        merged[i] = true; // marking it as merged
         i += 2;
       } else {
-        newRow.push(filteredRow[i]);
+        newRow.push(filteredRow[i]); // moving the tiles if they are unable to merge
         i++;
       }
     }
 
+    // maintaining the grid size
     while (newRow.length < gridSize) {
       newRow.push(null);
     }
-
+    setScore(prevScore => prevScore + tempScore); // only update score once after merging
     return newRow;
   };
 
+
+  // shift the row to the right
   const shiftRowRight = (row) => {
     let filteredRow = row.filter(cell => cell !== null).reverse();
     let newRow = [];
     let merged = Array(row.length).fill(false);
+    let tempScore = 0;
+
 
     let i = 0;
     while (i < filteredRow.length) {
       if (i + 1 < filteredRow.length && filteredRow[i] === filteredRow[i + 1] && !merged[i] && !merged[i + 1]) {
+        const mergedValue = filteredRow[i] * 2;
         newRow.push(filteredRow[i] * 2);
+        tempScore += mergedValue;
         merged[i] = true;
         i += 2;
       } else {
@@ -84,10 +131,11 @@ const Grid = () => {
     while (newRow.length < gridSize) {
       newRow.push(null);
     }
-
+    setScore(prevScore => prevScore + tempScore);
     return newRow.reverse();
   };
 
+  // shifts the colum upwards
   const shiftUp = (colIndex) => {
     const col = [];
     for (let i = 0; i < gridSize; i++) {
@@ -97,10 +145,13 @@ const Grid = () => {
     let newCol = [];
     let i = 0;
     let merged = Array(col.length).fill(false);
+    let tempScore = 0;
 
     while (i < filteredCol.length) {
       if (i + 1 < filteredCol.length && filteredCol[i] === filteredCol[i + 1] && !merged[i] && !merged[i + 1]) {
+        const mergedValue = filteredCol[i] * 2;
         newCol.push(filteredCol[i] * 2);
+        tempScore += mergedValue;
         merged[i] = true;
         i += 2;
       } else {
@@ -112,10 +163,11 @@ const Grid = () => {
     while (newCol.length < gridSize) {
       newCol.push(null);
     }
-
+    setScore(prevScore => prevScore + tempScore);
     return newCol;
   };
 
+  // shifts the colum downward
   const shiftDown = (colIndex) => {
     const col = [];
     for (let i = 0; i < gridSize; i++) {
@@ -125,10 +177,13 @@ const Grid = () => {
     let newCol = [];
     let i = 0;
     let merged = Array(col.length).fill(false);
+    let tempScore = 0;
 
     while (i < filteredCol.length) {
       if (i + 1 < filteredCol.length && filteredCol[i] === filteredCol[i + 1] && !merged[i] && !merged[i + 1]) {
+        const mergedValue = filteredCol[i] * 2;
         newCol.push(filteredCol[i] * 2);
+        tempScore += mergedValue;
         merged[i] = true;
         i += 2;
       } else {
@@ -140,10 +195,11 @@ const Grid = () => {
     while (newCol.length < gridSize) {
       newCol.push(null);
     }
-
+    setScore(prevScore => prevScore + tempScore);
     return newCol.reverse();
   };
 
+  // movement of the tiles in all directions
   const moveTiles = (direction) => {
     const newGrid = [...grid];
     let moved = false;
@@ -186,22 +242,26 @@ const Grid = () => {
       }
     }
 
+    // generating another tile if tiles moved
     if (moved) {
       const emptyCells = newGrid.map((value, index) => (value === null ? index : null)).filter(index => index !== null);
       if (emptyCells.length > 0) {
         const randomIndex = emptyCells[Math.floor(Math.random() * emptyCells.length)];
         newGrid[randomIndex] = getRandomTileValue();
       }
-      setGrid(newGrid);
+      setGrid(newGrid); // updating the grid state
     }
+    handleGame();
   };
 
+  // calling the initialize function
   useEffect(() => {
     initializeTiles();
   }, []);
 
   useEffect(() => {
     const handleKeyPress = (e) => {
+      if (gameStatus) return;
       switch (e.key) {
         case 'w':
           moveTiles('up');
@@ -222,8 +282,11 @@ const Grid = () => {
 
     window.addEventListener('keydown', handleKeyPress);
     return () => window.removeEventListener('keydown', handleKeyPress);
-  }, [grid]);
+  }, [grid, gameStatus]);
 
+  const handlePlayAgain = () => initializeTiles();
+
+  // rendering the grid
   return (
     <div className="flex justify-center items-center min-h-screen">
       <div className="grid grid-cols-4 grid-rows-4 w-[60%] p-2 gap-1">
@@ -236,6 +299,14 @@ const Grid = () => {
           </div>
         ))}
       </div>
+      {gameStatus && (
+        <GameMessage
+          message={gameStatus === 'won' ? "You Won!" : "Game Over"}
+          buttonText="Play Again"
+          onButtonClick={handlePlayAgain}
+        />
+      )}
+      <Score score={score}/>
     </div>  
   );
 };
